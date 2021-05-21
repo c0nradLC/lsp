@@ -2,16 +2,20 @@ use structopt::StructOpt;
 use std::fs::{self, DirEntry};
 use std::collections::HashMap;
 use std::os::linux::fs::MetadataExt;
-use users::{get_user_by_uid, get_current_uid, get_current_username, get_group_by_gid, get_current_groupname, get_current_gid};
+use users::{get_user_by_uid, get_current_uid, get_current_username, get_group_by_gid, get_current_gid, get_user_groups};
 use colored::*;
 
 #[derive(StructOpt)]
 struct Cli {
     #[structopt(default_value = "./")]
-    path: String,
+    path: std::path::PathBuf,
+    #[structopt(short = "f", long = "list-files-only")]
+    list_files_only: bool,
+    #[structopt(short = "d", long = "list-directories-only")]
+    list_directories_only: bool
 }
 
-struct FileDetails {
+struct EntryDetails {
     is_file: bool,
     file_name: String,
     file_owner: String,
@@ -61,7 +65,7 @@ fn transform_octal_permissions_to_human_readable(oct_permission: String) -> Stri
     return permissions;
 }
 
-fn get_file_permissions(entry: DirEntry) -> FileDetails {
+fn get_entry_permissions(entry: DirEntry) -> EntryDetails {
 
     let entry_metadata = entry.metadata().unwrap();
     let entry_permission_mode = format!("{:o}", entry_metadata.st_mode());
@@ -70,7 +74,7 @@ fn get_file_permissions(entry: DirEntry) -> FileDetails {
     permissions.next();
     permissions.next();
 
-    let file_permissions: FileDetails = FileDetails {
+    let entry_permissions = EntryDetails {
 
         is_file: entry_metadata.is_file(),
         file_name: entry.file_name().into_string().unwrap(),
@@ -83,53 +87,96 @@ fn get_file_permissions(entry: DirEntry) -> FileDetails {
         all_users: transform_octal_permissions_to_human_readable(permissions.next().unwrap().to_string()),
 
     };
-
-    return file_permissions;
+    
+    return entry_permissions;
 }
 
-fn get_user_permission(permissions: FileDetails) -> String {
+fn get_user_permission(permissions: EntryDetails) -> String {
     
     let current_uid = get_current_uid();
 
     if permissions.file_owner_id == current_uid && permissions.group_owner_id == get_current_gid() {
         if permissions.owner.len() >= permissions.group.len() {
             return permissions.owner;
-        }
-        else {
+        } else {
             return permissions.group;
         }
-    }
-    else if permissions.file_owner_id == current_uid {
+    } else if permissions.file_owner_id == current_uid && !check_if_user_in_group(permissions.group_owner_id) {
         return permissions.owner;
-    }
-    else if permissions.group_owner_id == get_current_gid() {
+    } else if check_if_user_in_group(permissions.group_owner_id) {
         return permissions.group;
-    }
-    else {
+    } else {
         return permissions.all_users;
     }
 
 }
 
-fn print_permissions(permissions: FileDetails) {
+fn check_if_user_in_group(group_gid: u32) -> bool {
 
-    println!("{} name: {}, Owner: {}(uid={}), Owner group: {}(gid={})", if permissions.is_file {"File"} else {"Directory"}, permissions.file_name.normal().bold(), permissions.file_owner.normal().bold(), permissions.file_owner_id, permissions.group_owner.normal().bold(), permissions.group_owner_id);
+    let groups = get_user_groups(get_current_username().unwrap().to_str().unwrap(), group_gid).unwrap();
+
+    for group in groups {
+
+        if group.name().to_str() == get_group_by_gid(group_gid).unwrap().name().to_str() {
+            return true;
+        }
+
+    }
+
+    return false;
+
+}
+
+fn print_permissions(permissions: EntryDetails) {
+
+    println!("{} name: {}, Owner: {}(uid={}), Owner group: {}(gid={})", if permissions.is_file {"File"} else {"Directory"}, permissions.file_name.magenta().bold(), permissions.file_owner.normal().bold(), permissions.file_owner_id, permissions.group_owner.normal().bold(), permissions.group_owner_id);
     println!("Owner: {}", permissions.owner.green());
     println!("Group: {}", permissions.group.blue());
     println!("All users: {}", permissions.all_users.red());
-    println!("The logged in user({}), part of the group \"{}\" can: {}\n", get_current_username().unwrap().to_str().unwrap().to_string(), get_current_groupname().unwrap().to_str().unwrap().to_string(), get_user_permission(permissions).yellow());
+    print!("The logged-in user({})", get_current_username().unwrap().to_str().unwrap().to_string());
+    
+    if check_if_user_in_group(permissions.group_owner_id) {
+        print!(", part of the group({:?})", get_group_by_gid(permissions.group_owner_id).unwrap().name());
+    }
 
+    print!(" can: {}", get_user_permission(permissions).yellow());
+
+    println!("\n{}", std::iter::repeat("-").take(100).collect::<String>());
 }
 
 fn main() {
 
     let args = Cli::from_args();
+    let entries = fs::read_dir(args.path);
 
-    for entry in fs::read_dir(args.path).unwrap() {
+    let entries = match entries {
+        Ok(entries) => entries,
+        Err(e) => panic!("Problem reading directory entries: {}", e),
+    };
 
-        let permissions: FileDetails = get_file_permissions(entry.unwrap());
-        print_permissions(permissions);
+    if args.list_files_only && args.list_directories_only {
+        panic!("--list-directories-only(-d) and --list-files-only(-f) cannot be used simultaneously");
+    }
 
+    for entry in entries {
+
+        let entry = entry.unwrap();
+
+        if args.list_files_only {
+
+            if entry.metadata().unwrap().is_file() {
+                print_permissions(get_entry_permissions(entry));
+            }
+
+        } else if args.list_directories_only {
+
+            if !entry.metadata().unwrap().is_file() {
+                print_permissions(get_entry_permissions(entry));
+            }
+
+        } else {
+                print_permissions(get_entry_permissions(entry));
+        }
     }
 
 }
