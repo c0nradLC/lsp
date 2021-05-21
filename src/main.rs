@@ -117,6 +117,10 @@ fn check_if_user_in_group(group_gid: u32) -> bool {
 
     for group in groups {
 
+        if group.name() == "root" {
+            continue;
+        }
+
         if group.name().to_str() == get_group_by_gid(group_gid).unwrap().name().to_str() {
             return true;
         }
