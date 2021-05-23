@@ -33,7 +33,9 @@ Since this is a small tool made only with the purpose of getting into Rust and l
 
 ### Arguments
 
-``` path ```: The path to the directory of which you want to list the files/directories permissions.Default value is ``` ./ ```.
+``` path ```: The path to the directory of which you want to list the files/directories permissions.
+
+Default value is ``` ./ ```.
 
 ### Flags
 
