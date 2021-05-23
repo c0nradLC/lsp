@@ -2,7 +2,7 @@ use structopt::StructOpt;
 use std::fs::{self, DirEntry};
 use std::collections::HashMap;
 use std::os::linux::fs::MetadataExt;
-use users::{get_user_by_uid, get_current_uid, get_current_username, get_group_by_gid, get_current_gid, get_user_groups};
+use users::{get_user_by_uid, get_current_uid, get_current_username, get_group_by_gid, get_user_groups};
 use colored::*;
 
 #[derive(StructOpt)]
@@ -95,7 +95,7 @@ fn get_user_permission(permissions: EntryDetails) -> String {
     
     let current_uid = get_current_uid();
 
-    if permissions.file_owner_id == current_uid && permissions.group_owner_id == get_current_gid() {
+    if permissions.file_owner_id == current_uid && check_if_user_in_group(permissions.group_owner_id) {
         if permissions.owner.len() >= permissions.group.len() {
             return permissions.owner;
         } else {
