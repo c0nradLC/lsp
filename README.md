@@ -24,7 +24,9 @@ Change into lsp's directory
 
 And run the package
 
-``` cargo run ```, you can also pass the package's arguments and flags to ``` cargo run ```. Example:  ``` cargo run -- -f ~/ ```
+``` cargo run ```, you can also pass the package's arguments and flags to ``` cargo run ```
+
+Example:  ``` cargo run -- -f ~/ ```
 
 ## Usage
 Since this is a small tool made only with the purpose of getting into Rust and learning a bit more about Linux permissions, its usage is pretty straightforward and some errors can be expected to happen.
