@@ -1,5 +1,5 @@
 # lsp
-lsp is a little script I made to make viewing the permissions of a directory/file in Linux a little bit better/clearer and also to get my first contact with the Rust lang.
+lsp is a little script I made to make viewing the permissions of a directory/file in Linux a little bit more intuitive.
 
 ## Dependencies
 ```toml
